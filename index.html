@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Web Mini Browser</title>
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #1a1a1a; color: #fff; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* Top Navigation Bar */
+        #nav-bar { display: flex; align-items: center; gap: 6px; padding: 8px; background-color: #242424; border-bottom: 1px solid #333; }
+        .nav-btn { background: #333; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+        .nav-btn:active { background: #555; }
+        #url-input { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #444; background: #121212; color: #fff; font-size: 14px; outline: none; }
+        
+        /* Main View Area */
+        #content-area { flex: 1; position: relative; width: 100%; height: 100%; }
+        iframe { width: 100%; height: 100%; border: none; background: #fff; }
+
+        /* History Modal */
+        #history-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; padding: 20px; box-sizing: border-box; flex-direction: column; }
+        #history-modal h3 { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        #history-list { list-style: none; overflow-y: auto; flex: 1; }
+        #history-list li { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; word-break: break-all; font-size: 14px; }
+        #history-list li:hover { background: #222; }
+        .close-btn { background: #ff4d4d; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- Nav Bar -->
+    <div id="nav-bar">
+        <button class="nav-btn" onclick="goBack()" title="Back">⬅</button>
+        <button class="nav-btn" onclick="goForward()" title="Forward">➡</button>
+        <button class="nav-btn" onclick="reloadPage()" title="Reload">🔄</button>
+        <input type="text" id="url-input" placeholder="Search Google or type URL..." onkeydown="handleKey(event)">
+        <button class="nav-btn" onclick="toggleHistory()" title="History">📜</button>
+    </div>
+
+    <!-- Web Content View -->
+    <div id="content-area">
+        <iframe id="web-frame" src="https://www.google.com/search?igu=1"></iframe>
+        
+        <!-- History Overlay -->
+        <div id="history-modal">
+            <h3> Search History <button class="close-btn" onclick="toggleHistory()">Close</button></h3>
+            <ul id="history-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Telegram Mini App Initialization
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        if (tg) {
+            tg.expand();
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                goBack();
+            });
+        }
+
+        const iframe = document.getElementById('web-frame');
+        const urlInput = document.getElementById('url-input');
+        const historyList = document.getElementById('history-list');
+        const historyModal = document.getElementById('history-modal');
+        
+        let localHistory = [];
+
+        // Navigate URL or Google Search
+        function navigate() {
+            let value = urlInput.value.trim();
+            if (!value) return;
+
+            let targetUrl = '';
+            if (value.startsWith('http://') || value.startsWith('https://')) {
+                targetUrl = value;
+            } else if (value.includes('.') && !value.includes(' ')) {
+                targetUrl = 'https://' + value;
+            } else {
+                targetUrl = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(value);
+            }
+
+            iframe.src = targetUrl;
+            saveHistory(value, targetUrl);
+        }
+
+        function handleKey(event) {
+            if (event.key === 'Enter') {
+                navigate();
+            }
+        }
+
+        function goBack() {
+            try {
+                iframe.contentWindow.history.back();
+            } catch (e) {
+                // Fallback to Home if Cross-Origin restricts history
+                iframe.src = "https://www.google.com/search?igu=1";
+            }
+        }
+
+        function goForward() {
+            try {
+                iframe.contentWindow.history.forward();
+            } catch (e) {
+                console.log("Forward operation restricted by cross-origin policy.");
+            }
+        }
+
+        function reloadPage() {
+            iframe.src = iframe.src;
+        }
+
+        function saveHistory(query, url) {
+            const time = new Date().toLocaleTimeString();
+            localHistory.unshift({ query, url, time });
+            renderHistory();
+        }
+
+        function renderHistory() {
+            historyList.innerHTML = '';
+            if (localHistory.length === 0) {
+                historyList.innerHTML = '<li style="color: #888;">No history found.</li>';
+                return;
+            }
+            localHistory.forEach((item) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${item.query}</strong> <br><small style="color:#aaa;">${item.time} - ${item.url}</small>`;
+                li.onclick = () => {
+                    iframe.src = item.url;
+                    urlInput.value = item.query;
+                    toggleHistory();
+                };
+                historyList.appendChild(li);
+            });
+        }
+
+        function toggleHistory() {
+            if (historyModal.style.display === 'flex') {
+                historyModal.style.display = 'none';
+            } else {
+                historyModal.style.display = 'flex';
+                renderHistory();
+            }
+        }
+    </script>
+</body>
+</html>
